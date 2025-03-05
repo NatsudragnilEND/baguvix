@@ -329,7 +329,6 @@ bot.onText(/\/start/, async (msg) => {
       inline_keyboard: [
         [{ text: 'Уровень 1', callback_data: 'level_1' }],
         [{ text: 'Уровень 2', callback_data: 'level_2' }],
-        [{ text: 'Подробнее о подписках', callback_data: 'subscription_details' }],
         [{ text: 'Сообщество "BAGUVIX"', url: 'https://telegra.ph/Soobshchestvo-BAGUVIX-03-05' }],
         [{ text: 'Открыть мини-приложение', callback_data: 'open_app' }],
       ],
@@ -386,24 +385,24 @@ bot.on('callback_query', async (query) => {
       });
     }
   } else if (data === 'level_1') {
-    bot.sendMessage(chatId, 'Доступ ко всему, что изменит твое восприятие реальности.\n' +
-                            '• Закрытые лекции и статьи, где собраны главные принципы выживания, роста и доминирования в этом мире.\n' +
-                            '• Конкретные инструменты для понимания себя, окружающих и сил, которые управляют этим миром.\n' +
-                            '• Материалы по биохакингу, гормональному балансу, тренировкам, психологии и философии, которые дают преимущество.\n' +
-                            '• Закрытая библиотека знаний – то, что не найдешь в открытом доступе.\n\n' +
-                            'Ты станешь частью круга, который мыслит иначе, который видит больше, который избежал ловушек слабости и иллюзий.');
-  } else if (data === 'level_2') {
-    bot.sendMessage(chatId, 'Знания — это мощь, но индивидуальное направление – это оружие. Здесь ты получаешь не просто информацию, а прямую связь с теми, кто знает путь.\n\n' +
-                            'Включает всё из первого тарифа, плюс:\n' +
-                            '• Чат, где мы – кураторы – разбираем конкретно твои вопросы, твои ситуации, твои вызовы.\n' +
-                            '• Общение с другими участниками, которые, как и ты, движутся к пониманию, дисциплине и силе.\n' +
-                            '• Живые встречи – несколько раз в месяц. Где не просто слова, а работа над собой.');
-  } else if (data === 'subscription_details') {
-    bot.sendMessage(chatId, 'Выбери уровень подписки, чтобы узнать больше:', {
+    bot.sendMessage(chatId, 'Выберите срок подписки для Уровня 1:', {
       reply_markup: {
         inline_keyboard: [
-          [{ text: 'Уровень 1', callback_data: 'level_1' }],
-          [{ text: 'Уровень 2', callback_data: 'level_2' }],
+          [{ text: `1 месяц - ${calculateAmount(1, 1)} руб`, callback_data: 'duration_1_1' }],
+          [{ text: `3 месяца - ${calculateAmount(1, 3)} руб`, callback_data: 'duration_3_1' }],
+          [{ text: `6 месяцев - ${calculateAmount(1, 6)} руб`, callback_data: 'duration_6_1' }],
+          [{ text: `1 год - ${calculateAmount(1, 12)} руб`, callback_data: 'duration_12_1' }],
+        ],
+      },
+    });
+  } else if (data === 'level_2') {
+    bot.sendMessage(chatId, 'Выберите срок подписки для Уровня 2:', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: `1 месяц - ${calculateAmount(2, 1)} руб`, callback_data: 'duration_1_2' }],
+          [{ text: `3 месяца - ${calculateAmount(2, 3)} руб`, callback_data: 'duration_3_2' }],
+          [{ text: `6 месяцев - ${calculateAmount(2, 6)} руб`, callback_data: 'duration_6_2' }],
+          [{ text: `1 год - ${calculateAmount(2, 12)} руб`, callback_data: 'duration_12_2' }],
         ],
       },
     });
