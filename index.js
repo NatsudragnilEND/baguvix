@@ -28,6 +28,13 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// Массив Telegram ID администраторов
+const adminTelegramIds = [
+  '5793122261',
+  '292027815',
+  '7518336354'
+];
+
 // Авторизация через Telegram
 app.get('/auth/telegram', async (req, res) => {
   const { id, username, hash } = req.query;
@@ -331,6 +338,7 @@ bot.onText(/\/start/, async (msg) => {
         [{ text: 'Уровень 2', callback_data: 'level_2' }],
         [{ text: 'Сообщество "BAGUVIX"', url: 'https://telegra.ph/Soobshchestvo-BAGUVIX-03-05' }],
         [{ text: 'Открыть мини-приложение', callback_data: 'open_app' }],
+        ...(adminTelegramIds.includes(chatId.toString()) ? [[{ text: 'Админ-панель', callback_data: 'admin_panel' }]] : []),
       ],
     },
   });
@@ -353,7 +361,21 @@ bot.on('callback_query', async (query) => {
 
   const userId = user.id;
 
-  if (data.startsWith('pay_')) {
+  if (data === 'admin_panel') {
+    const adminUrl = 'https://baguvix-mini-app.vercel.app/admin';
+    bot.sendMessage(chatId, 'Открыть админ-панель', {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: 'Открыть админ-панель',
+              web_app: { url: adminUrl }
+            }
+          ],
+        ],
+      },
+    });
+  } else if (data.startsWith('pay_')) {
     const [level, duration] = data.split('_').slice(1);
     const amount = calculateAmount(level, duration);
     const paymentLink = generatePaymentLink(userId, level, duration, amount);
@@ -405,7 +427,7 @@ bot.on('callback_query', async (query) => {
     });
   } else if (data === 'level_2') {
     bot.sendMessage(chatId, `Выберите срок подписки для Уровня 2:
-      
+
       Знания — это мощь, но индивидуальное направление – это оружие. Здесь ты получаешь не просто информацию, а прямую связь с теми, кто знает путь.
 
 Включает всё из первого тарифа, плюс:
@@ -442,16 +464,16 @@ app.listen(PORT, () => {
 function calculateAmount(level, duration) {
   const prices = {
     level_1: {
+      '1': 1490,
+      '3': 3990,
+      '6': 7490,
+      '12': 14290,
+    },
+    level_2: {
       '1': 4990,
       '3': 13390,
       '6': 25390,
       '12': 47890,
-    },
-    level_2: {
-      '1': 9990,
-      '3': 26390,
-      '6': 49390,
-      '12': 94890,
     },
   };
 
