@@ -504,7 +504,8 @@ async function checkGroupMembers() {
   const { data: members, error } = await supabase
     .from('usersa')
     .select('telegram_id');
-
+  console.log(members);
+  
   if (error) {
     console.error('Ошибка при получении участников группы', error);
     return;
@@ -520,7 +521,8 @@ async function checkGroupMembers() {
       .order('end_date', { ascending: false })
       .limit(1)
       .single();
-
+    console.log(subscription);
+    
     if (error || !subscription || new Date(subscription.end_date) < new Date()) {
       try {
         await bot.kickChatMember(groupChatId, memberId);
