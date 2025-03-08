@@ -500,7 +500,7 @@ bot.on('callback_query', async (query) => {
 
 // Функция для проверки участников в группе и удаления тех, у кого нет подписки
 async function checkGroupMembers() {
-  const groupChatId = '@your_group_chat_id'; // Замените на ID вашей группы
+  const groupChatId = '2451832857';
   const { data: members, error } = await supabase
     .from('usersa')
     .select('telegram_id');
