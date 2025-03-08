@@ -243,7 +243,7 @@ app.post('/api/cloudpayments/pay', async (req, res) => {
   try {
     const paymentData = await createPaymentLink(amount, currency, description, email);
     console.log(paymentData);
-    
+
     const paymentLink = paymentData.Model.Url;
     res.json({ paymentLink });
   } catch (error) {
@@ -282,6 +282,13 @@ app.post('/api/cloudpayments/webhook', async (req, res) => {
 
     if (error) {
       return res.status(500).json({ error: 'Ошибка при обновлении подписки' });
+    }
+
+    // Отправка ссылок после успешной оплаты
+    if (level === '1') {
+      bot.sendMessage(userId, 'Ссылка на закрытый канал: [Канал](https://t.me/+jdK9-rca3e5mZWEy)');
+    } else if (level === '2') {
+      bot.sendMessage(userId, 'Ссылка на закрытый канал: [Канал](https://t.me/+jdK9-rca3e5mZWEy)\nСсылка на закрытый чат: [Чат](https://t.me/+ncNfH5tteTQyYjJi )');
     }
 
     bot.sendMessage(userId, 'Оплата прошла успешно! Ваша подписка продлена.');
@@ -404,7 +411,7 @@ bot.on('callback_query', async (query) => {
       });
       const paymentLink = response.data.paymentLink;
       console.log(response.data, paymentLink);
-      
+
       bot.sendMessage(chatId, `Оплатите подписку по ссылке:`, {
         reply_markup: {
           inline_keyboard: [
@@ -491,13 +498,50 @@ bot.on('callback_query', async (query) => {
   }
 });
 
+// Функция для проверки участников в группе и удаления тех, у кого нет подписки
+async function checkGroupMembers() {
+  const groupChatId = '@your_group_chat_id'; // Замените на ID вашей группы
+  const { data: members, error } = await supabase
+    .from('usersa')
+    .select('telegram_id');
 
+  if (error) {
+    console.error('Ошибка при получении участников группы', error);
+    return;
+  }
 
+  const memberIds = members.map(member => member.telegram_id);
+
+  for (const memberId of memberIds) {
+    const { data: subscription, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', memberId)
+      .order('end_date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !subscription || new Date(subscription.end_date) < new Date()) {
+      try {
+        await bot.kickChatMember(groupChatId, memberId);
+        console.log(`Удален участник с ID ${memberId} из группы`);
+      } catch (error) {
+        console.error(`Ошибка при удалении участника с ID ${memberId} из группы`, error);
+      }
+    }
+  }
+}
+
+// Периодическая проверка участников группы
+schedule.scheduleJob('0 0 * * *', async () => {
+  await checkGroupMembers();
+});
 
 // Запуск сервера
 app.listen(PORT, () => {
   console.log(`Сервер запущен на порту ${PORT}`);
 });
+
 async function createPaymentLink(amount, currency, description, email) {
   const url = 'https://api.cloudpayments.ru/orders/create';
 
