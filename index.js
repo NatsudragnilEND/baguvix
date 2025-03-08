@@ -535,9 +535,10 @@ async function checkGroupMembers() {
 }
 
 // Периодическая проверка участников группы
-schedule.scheduleJob('0 0 * * *', async () => {
+schedule.scheduleJob('* * * * * *', async () => {
   await checkGroupMembers();
 });
+
 
 // Запуск сервера
 app.listen(PORT, () => {
