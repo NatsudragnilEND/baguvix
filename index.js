@@ -212,31 +212,6 @@ app.post('/api/subscription/extend', async (req, res) => {
 const cloudpaymentsPublicId = process.env.CLOUDPAYMENTS_PUBLIC_ID;
 const cloudpaymentsSecretKey = process.env.CLOUDPAYMENTS_SECRET_KEY;
 
-async function createCloudPayment(amount, currency, description, email) {
-  const url = 'https://api.cloudpayments.ru/payments/cards/charge';
-
-  const payload = {
-    Amount: amount,
-    Currency: currency,
-    Description: description,
-    Email: email,
-    IpAddress: '127.0.0.1', // Replace with the actual IP address of the client
-    Name: 'Customer Name', // Replace with the actual customer name
-  };
-
-  try {
-    const response = await axios.post(url, payload, {
-      auth: {
-        username: cloudpaymentsPublicId,
-        password: cloudpaymentsSecretKey,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error creating CloudPayment:', error);
-    throw error;
-  }
-}
 app.post('/api/cloudpayments/pay', async (req, res) => {
   const { amount, currency, description, email } = req.body;
 
@@ -255,11 +230,21 @@ app.post('/api/cloudpayments/webhook', async (req, res) => {
   const { TransactionId, Status, Amount, Currency, Description } = req.body;
 
   if (Status === 'Completed') {
-    // Handle successful payment
     console.log('Payment completed:', TransactionId);
 
-    // Extract user ID and subscription details from the description
     const [userId, level, duration] = Description.split('_');
+
+    const { data: user, error: userError } = await supabase
+      .from('usersa')
+      .select('telegram_id')
+      .eq('id', userId)
+      .single();
+
+    if (userError) {
+      return res.status(500).json({ error: 'Ошибка при получении пользователя' });
+    }
+
+    const telegramId = user.telegram_id;
 
     const { data: subscription, error: fetchError } = await supabase
       .from('subscriptions')
@@ -286,14 +271,16 @@ app.post('/api/cloudpayments/webhook', async (req, res) => {
 
     // Отправка ссылок после успешной оплаты
     if (level === '1') {
-      bot.sendMessage(userId, 'Ссылка на закрытый канал: [Канал](https://t.me/+jdK9-rca3e5mZWEy)');
+      const channelLink = await bot.createChatInviteLink(-1002451832857, { expire_date: Math.floor(Date.now() / 1000) + 3600 });
+      bot.sendMessage(telegramId, `Ссылка на закрытый канал: ${channelLink.invite_link}`);
     } else if (level === '2') {
-      bot.sendMessage(userId, 'Ссылка на закрытый канал: [Канал](https://t.me/+jdK9-rca3e5mZWEy)\nСсылка на закрытый чат: [Чат](https://t.me/+ncNfH5tteTQyYjJi )');
+      const channelLink = await bot.createChatInviteLink(-1002451832857, { expire_date: Math.floor(Date.now() / 1000) + 3600 });
+      const chatLink = await bot.createChatInviteLink(-1002451832857, { expire_date: Math.floor(Date.now() / 1000) + 3600 });
+      bot.sendMessage(telegramId, `Ссылка на закрытый канал: ${channelLink.invite_link}\nСсылка на закрытый чат: ${chatLink.invite_link}`);
     }
 
-    bot.sendMessage(userId, 'Оплата прошла успешно! Ваша подписка продлена.');
+    bot.sendMessage(telegramId, 'Оплата прошла успешно! Ваша подписка куплена.');
   } else {
-    // Handle failed payment
     console.log('Payment failed:', TransactionId);
   }
 
@@ -500,45 +487,61 @@ bot.on('callback_query', async (query) => {
 
 // Функция для проверки участников в группе и удаления тех, у кого нет подписки
 async function checkGroupMembers() {
-  const groupChatId = '2451832857';
-  const { data: members, error } = await supabase
-    .from('usersa')
-    .select('telegram_id');
-  console.log(members);
-  
-  if (error) {
-    console.error('Ошибка при получении участников группы', error);
-    return;
-  }
+  const groupChatId = '-1002451832857'; // Your group ID
 
-  const memberIds = members.map(member => member.telegram_id);
+  try {
+    // Fetch all registered users from the database
+    const { data: members, error: membersError } = await supabase
+      .from('usersa')
+      .select('id, telegram_id');
 
-  for (const memberId of memberIds) {
-    const { data: subscription, error } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', memberId)
-      .order('end_date', { ascending: false })
-      .limit(1)
-      .single();
-    console.log(subscription);
-    
-    if (error || !subscription || new Date(subscription.end_date) < new Date()) {
+    if (membersError) {
+      throw new Error(`Ошибка при получении зарегистрированных пользователей: ${membersError.message}`);
+    }
+
+    // Convert database users into a Set for fast lookup
+    const dbUserIds = new Set(members.map(member => member.telegram_id));
+
+    // Fetch all chat members (bot must be admin for this)
+    for (const member of members) {
       try {
-        await bot.kickChatMember(groupChatId, memberId);
-        console.log(`Удален участник с ID ${memberId} из группы`);
+        const chatMember = await bot.getChatMember(groupChatId, member.telegram_id);
+
+        // Skip if user is an admin or the bot itself
+        if (['administrator', 'creator'].includes(chatMember.status)) continue;
+
+        // Remove users who are not in the database
+        if (!dbUserIds.has(member.telegram_id)) {
+          await bot.banChatMember(groupChatId, member.telegram_id);
+          continue;
+        }
+
+        // Check user's subscription
+        const { data: subscription, error: subscriptionError } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', member.id)
+          .order('end_date', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (subscriptionError || !subscription || new Date(subscription.end_date) < new Date()) {
+          await bot.banChatMember(groupChatId, member.telegram_id);
+        } else {
+        }
       } catch (error) {
-        console.error(`Ошибка при удалении участника с ID ${memberId} из группы`, error);
+        console.error(`Ошибка при проверке участника с Telegram ID ${member.telegram_id}:`, error);
       }
     }
+  } catch (error) {
+    console.error('Ошибка при проверке участников группы:', error);
   }
 }
 
 // Периодическая проверка участников группы
 schedule.scheduleJob('* * * * * *', async () => {
-  await checkGroupMembers();
+ await checkGroupMembers();
 });
-
 
 // Запуск сервера
 app.listen(PORT, () => {
