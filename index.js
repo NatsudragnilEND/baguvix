@@ -220,7 +220,7 @@ app.post('/api/cloudpayments/pay', async (req, res) => {
     console.log(paymentData);
 
     const paymentLink = paymentData.Model.Url;
-    res.json({ paymentLink });
+    res.json(paymentData);
   } catch (error) {
     res.status(500).json({ error: 'Ошибка при создании платежной ссылки' });
   }
@@ -396,18 +396,34 @@ bot.on('callback_query', async (query) => {
         description: `${userId}_${level}_${duration}`,
         email: 'customer@example.com',
       });
-      const paymentLink = response.data.paymentLink;
-      console.log(response.data, paymentLink);
+      const paymentLink = response.data.Model.Url;
+      const TransactionId = response.data.Model.Id;
 
       bot.sendMessage(chatId, `Оплатите подписку по ссылке:`, {
         reply_markup: {
           inline_keyboard: [
             [{ text: 'Оплатить', url: paymentLink }],
+            [{ text: 'Проверить оплату', callback_data: `check_payment_${TransactionId}` }],
           ],
         },
       });
     } catch (error) {
       bot.sendMessage(chatId, 'Произошла ошибка при создании платежа. Пожалуйста, попробуйте позже.');
+      console.log(error);
+      
+    }
+  }  else if (data.startsWith('check_payment_')) {
+    const transactionId = data.split('_')[2];
+    try {
+      const confirmation = await confirmPayment(transactionId);
+      if (confirmation.success) {
+        bot.sendMessage(chatId, 'Оплата подтверждена! Ваша подписка активирована.');
+        // Add logic to update the user's subscription status
+      } else {
+        bot.sendMessage(chatId, 'Оплата не подтверждена. Пожалуйста, попробуйте снова.');
+      }
+    } catch (error) {
+      bot.sendMessage(chatId, 'Произошла ошибка при проверке оплаты. Пожалуйста, попробуйте позже.');
     }
   } else if (data === 'open_app') {
     const { data: subscription, error } = await supabase
@@ -573,35 +589,42 @@ async function createPaymentLink(amount, currency, description, email) {
   }
 }
 
+async function confirmPayment(transactionId) {
+  const url = `https://api.cloudpayments.ru/payments/confirm`;
+
+  const payload = {
+    TransactionId: transactionId,
+  };
+
+  try {
+    const response = await axios.post(url, payload, {
+      auth: {
+        username: cloudpaymentsPublicId,
+        password: cloudpaymentsSecretKey,
+      },
+    });
+    return { success: response.data.Success, message: response.data.Message };
+  } catch (error) {
+    console.error('Error confirming payment:', error);
+    throw error;
+  }
+}
+
 function calculateAmount(level, duration) {
   const prices = {
     level_1: {
-      '1': 1,
-      '3': 1,
-      '6': 1,
-      '12': 1,
+      '1': 1490,
+      '3': 3990,
+      '6': 7490,
+      '12': 14290,
     },
     level_2: {
-      '1': 1,
-      '3': 1,
-      '6': 1,
-      '12': 1,
+      '1': 4990,
+      '3': 13390,
+      '6': 25390,
+      '12': 47890,
     },
   };
 
   return prices[`level_${level}`][duration];
 }
-const prices = {
-  level_1: {
-    '1': 1490,
-    '3': 3990,
-    '6': 7490,
-    '12': 14290,
-  },
-  level_2: {
-    '1': 4990,
-    '3': 13390,
-    '6': 25390,
-    '12': 47890,
-  },
-};
