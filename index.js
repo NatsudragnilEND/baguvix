@@ -576,16 +576,16 @@ async function createPaymentLink(amount, currency, description, email) {
 function calculateAmount(level, duration) {
   const prices = {
     level_1: {
-      '1': 0,
-      '3': 0,
-      '6': 0,
-      '12': 0,
+      '1': 1,
+      '3': 1,
+      '6': 1,
+      '12': 1,
     },
     level_2: {
-      '1': 0,
-      '3': 0,
-      '6': 0,
-      '12': 0,
+      '1': 1,
+      '3': 1,
+      '6': 1,
+      '12': 1,
     },
   };
 
