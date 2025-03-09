@@ -576,18 +576,32 @@ async function createPaymentLink(amount, currency, description, email) {
 function calculateAmount(level, duration) {
   const prices = {
     level_1: {
-      '1': 1490,
-      '3': 3990,
-      '6': 7490,
-      '12': 14290,
+      '1': 0,
+      '3': 0,
+      '6': 0,
+      '12': 0,
     },
     level_2: {
-      '1': 4990,
-      '3': 13390,
-      '6': 25390,
-      '12': 47890,
+      '1': 0,
+      '3': 0,
+      '6': 0,
+      '12': 0,
     },
   };
 
   return prices[`level_${level}`][duration];
 }
+const prices = {
+  level_1: {
+    '1': 1490,
+    '3': 3990,
+    '6': 7490,
+    '12': 14290,
+  },
+  level_2: {
+    '1': 4990,
+    '3': 13390,
+    '6': 25390,
+    '12': 47890,
+  },
+};
